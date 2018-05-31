@@ -1,6 +1,7 @@
 type Query {
   info: String!
   feed: [Link!]!
+  users: [User]!
   link(id: ID!): Link
 }
 
@@ -11,7 +12,15 @@ type Mutation {
 }
 
 type Link {
+  id: ID
+  description: String
+  url: String
+  postedBy: User
+}
+
+type User {
   id: ID!
-  description: String!
-  url: String!
+  name: String!
+  email: String!
+  links: [Link!]!
 }
