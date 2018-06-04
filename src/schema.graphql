@@ -3,12 +3,12 @@ type Query {
   feed: [Link!]!
   users: [User]!
   link(id: ID!): Link
+  user(id: ID!): User
 }
 
 type Mutation {
   post(url: String!, description: String!): Link!
   update(id: ID!, url: String, description: String!): Link
-  delete(id: ID!): Link
 }
 
 type Link {

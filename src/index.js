@@ -9,17 +9,17 @@ MongoClient.connect(dbUrl)
   hackerNewsDb = dbObj.db('hackernews')
   linksCollection = hackerNewsDb.collection('link')
   usersCollection = hackerNewsDb.collection('user')
-  return restartDB()
+  // return restartDB()
 })
 .then(() => console.log('Database connected'))
 
-const restartDB = () => {
-  linksCollection.deleteMany({})
-  usersCollection.deleteMany({})
+const restartDB = async () => {
+  await linksCollection.deleteMany({})
+  await usersCollection.deleteMany({})
   return insertUsers()
 }
 
-const extractSingleResult = results => results.length > 0 ? results[0] : {}
+const extractSingleResult = results => results.length > 0 ? results[0] : null
 
 const typeDefs = './src/schema.graphql'
 
@@ -27,8 +27,8 @@ const insertUsers = () => {
   const bob = {id: uuid(), name: 'Bob', email: 'bob@gmail.com', links: []}
   const alice = {id: uuid(), name: 'Alice', email: 'alice@gmail.com', links: []}
   return usersCollection.insertMany([bob, alice])
-  .then(() => insertLink('www.myblog.com', 'My personal Blog', bob).then(link => updateUser(bob.id, link)))
-  .then(() => insertLink('www.myrecipes.com', 'My recipes Site', alice).then(link => updateUser(alice.id, link)))
+  .then(() => insertLink('www.myblog.com', 'My personal Blog', bob))
+  .then(() => insertLink('www.myrecipes.com', 'My recipes Site', alice))
 }
 
 const findUser = id => usersCollection.find({id}).toArray().then(extractSingleResult)
@@ -42,7 +42,9 @@ const findAllUsers = () => usersCollection.find({}).toArray()
 
 const insertLink = (url, description, postedBy) => {
   const link = {url, description, id: uuid(), postedBy}
-  return linksCollection.insertOne(link).then(results => results.ops[0])
+  let res
+  return linksCollection.insertOne(link).then(results => res = results.ops[0])
+  .then(() => updateUser(postedBy.id, link)).then(() => res)
 }
 
 const findLink = id => {
@@ -53,24 +55,40 @@ const findLink = id => {
 
 const findAllLinks = () => linksCollection.find({}).toArray()
 
+const getAuthenticatedUser = async context => {
+  const notAuthenticatedError = new Error('User not authenticated')
+  const id = context.request && context.request.get('Authorization')
+  if(id) {
+    const user = await findUser(id)
+    if(!user) throw notAuthenticatedError
+    return user
+  }
+  throw notAuthenticatedError
+}
+
 const resolvers = {
   Query: {
     info: () => null,
     feed: () => findAllLinks(),
     link: (root, args) => findLink(args.id),
-    users: () => findAllUsers()
+    users: () => findAllUsers(),
+    user: (root, args) => findUser(args.id)
   },
   Mutation: {
-    post: (root, args) => {
+    post: async (root, args, context) => {
+      const user = await getAuthenticatedUser(context)
       const {url, description} = args
-      return insertLink(url, description)
+      return insertLink(url, description, user)
     }
   }
 }
 
+const context = context => context
+
 const server = new GraphQLServer({
   typeDefs,
   resolvers,
+  context
 })
 
 server.start(() => console.log(`Server is running on http://localhost:4000`))
