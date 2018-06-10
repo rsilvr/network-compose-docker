@@ -1,29 +1,25 @@
 module.exports =
 `
-type Pagination {
-  min: Int
-  max: Int
-}
 type Query {
   info: String!
-  feed(quantity: Pagination): [Link!]!
-  users: [User]!
-  link(id: ID!): Link
-  user(id: ID!): User
+  feed: [Link!]!
+  findUsers: [User]!
+  getLink(id: ID!): Link
+  getUser(id: ID!): User
 }
 
 type Mutation {
   post(url: String!, description: String!): Link!
 }
 
-type Link {
+type Link @cost(complexity: 1) {
   id: ID
   description: String
   url: String
   postedBy: User
 }
 
-type User {
+type User @cost(complexity: 3) {
   id: ID!
   name: String!
   email: String!
