@@ -1,5 +1,7 @@
-const {GraphQLServer} = require('graphql-yoga')
-const uuid = require('uuid').v4
+const express = require('express')
+const graphqlHTTP = require('express-graphql')
+const {buildSchema} = require('graphql')
+const depthLimit = require('graphql-depth-limit')
 
 const {MongoClient} = require('mongodb')
 const dbUrl = 'mongodb://localhost:27017/'
@@ -20,8 +22,6 @@ const restartDB = async () => {
 }
 
 const extractSingleResult = results => results.length > 0 ? results[0] : null
-
-const typeDefs = './src/schema.graphql'
 
 const insertUsers = () => {
   const bob = {id: uuid(), name: 'Bob', email: 'bob@gmail.com', links: []}
@@ -66,29 +66,28 @@ const getAuthenticatedUser = async context => {
   throw notAuthenticatedError
 }
 
-const resolvers = {
-  Query: {
-    info: () => null,
-    feed: () => findAllLinks(),
-    link: (root, args) => findLink(args.id),
-    users: () => findAllUsers(),
-    user: (root, args) => findUser(args.id)
-  },
-  Mutation: {
-    post: async (root, args, context) => {
-      const user = await getAuthenticatedUser(context)
-      const {url, description} = args
-      return insertLink(url, description, user)
-    }
-  }
+
+const rootValue = {
+  info: () => "Minha API",
+  feed: () => findAllLinks(),
+  link: (root, args) => findLink(args.id),
+  users: () => findAllUsers(),
+  user: (root, args) => findUser(args.id),
+  post: async (root, args, context) => {
+    const user = await getAuthenticatedUser(context)
+    const {url, description} = args
+    return insertLink(url, description, user)
+  } 
 }
 
-const context = context => context
-
-const server = new GraphQLServer({
-  typeDefs,
-  resolvers,
-  context
+const server = graphqlHTTP({
+  schema: buildSchema(require('./schema')),
+  rootValue,
+  graphiql: true,
+  validationRules: [ depthLimit(4) ]
 })
 
-server.start(() => console.log(`Server is running on http://localhost:4000`))
+const app = express()
+app.use('/graphql', server)
+app.listen(4000)
+console.log(`Server is running on http://localhost:4000`)

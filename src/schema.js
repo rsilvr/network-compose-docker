@@ -1,6 +1,12 @@
+module.exports =
+`
+type Pagination {
+  min: Int
+  max: Int
+}
 type Query {
   info: String!
-  feed: [Link!]!
+  feed(quantity: Pagination): [Link!]!
   users: [User]!
   link(id: ID!): Link
   user(id: ID!): User
@@ -23,3 +29,4 @@ type User {
   email: String!
   links: [Link!]!
 }
+`
