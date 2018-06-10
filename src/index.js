@@ -14,7 +14,7 @@ MongoClient.connect(dbUrl)
   hackerNewsDb = dbObj.db('hackernews')
   linksCollection = hackerNewsDb.collection('link')
   usersCollection = hackerNewsDb.collection('user')
-  return restartDB()
+  // return restartDB()
 })
 .then(() => console.log('Database connected'))
 
@@ -35,7 +35,7 @@ const insertUsers = () => {
   .then(() => insertLink('www.w3schools.com', 'My reference site', alice.id))
 }
 
-const findUser = id => usersCollection.find({id}).toArray().then(extractSingleResult)
+const findUser = id => usersCollection.findOne({id})
 
 const findAllUsers = () => usersCollection.find({}).toArray()
 
@@ -47,8 +47,7 @@ const insertLink = (url, description, postedBy) => {
 
 const getLink = id => {
   const query = {id}
-  return linksCollection.find(query).toArray()
-  .then(extractSingleResult)
+  return linksCollection.findOne(query)
 }
 
 const findLinksByUser = userId => {
