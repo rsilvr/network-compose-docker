@@ -1,7 +1,8 @@
 const uuid = require('uuid')
 const express = require('express')
-const graphqlHTTP = require('express-graphql')
-const {buildSchema} = require('graphql')
+const bodyParser = require('body-parser')
+const { graphqlExpress, graphiqlExpress } = require('apollo-server-express')
+const { makeExecutableSchema } = require('graphql-tools')
 const depthLimit = require('graphql-depth-limit')
 const costAnalysis = require('graphql-cost-analysis').default
 
@@ -29,33 +30,30 @@ const insertUsers = () => {
   const bob = {id: uuid(), name: 'Bob', email: 'bob@gmail.com', links: []}
   const alice = {id: uuid(), name: 'Alice', email: 'alice@gmail.com', links: []}
   return usersCollection.insertMany([bob, alice])
-  .then(() => insertLink('www.myblog.com', 'My personal blog', bob))
-  .then(() => insertLink('www.github.com/bob', 'My github profile', bob))
-  .then(() => insertLink('www.w3schools.com', 'My reference site', alice))
+  .then(() => insertLink('www.myblog.com', 'My personal blog', bob.id))
+  .then(() => insertLink('www.github.com/bob', 'My github profile', bob.id))
+  .then(() => insertLink('www.w3schools.com', 'My reference site', alice.id))
 }
 
-const findUser = id => usersCollection.find({id}).toArray().then(extractSingleResult)
-
-const updateUser = (id, link) => {
-  return findUser(id)
-  .then(user => {
-    usersCollection.updateOne({id}, {$set: {links: [...user.links, link]}})
-  })
-}
+const findUser = id => usersCollection.findOne({id}).toArray().then(extractSingleResult)
 
 const findAllUsers = () => usersCollection.find({}).toArray()
 
 const insertLink = (url, description, postedBy) => {
   const link = {url, description, id: uuid(), postedBy}
   let res
-  return linksCollection.insertOne(link).then(results => res = results.ops[0])
-  .then(() => updateUser(postedBy.id, link)).then(() => res)
+  return linksCollection.insertOne(link).then(results => results.ops[0])
 }
 
-const findLink = id => {
+const getLink = id => {
   const query = {id}
   return linksCollection.find(query).toArray()
   .then(extractSingleResult)
+}
+
+const findLinksByUser = userId => {
+  const query = {postedBy: userId}
+  return linksCollection.find(query).toArray()
 }
 
 const findAllLinks = () => linksCollection.find({}).toArray()
@@ -71,28 +69,47 @@ const getAuthenticatedUser = async context => {
   throw notAuthenticatedError
 }
 
+const typeDefs = require('./schema')
 
-const rootValue = {
-  info: () => "Minha API",
-  feed: () => findAllLinks(),
-  getLink: (args, context) => findLink(args.id),
-  findUsers: () => findAllUsers(),
-  getUser: (args, context) => findUser(args.id),
-  post: async (args, context) => {
-    const user = await getAuthenticatedUser(context)
-    const {url, description} = args
-    return insertLink(url, description, user)
-  } 
+const resolvers = {
+  Query: {
+    info: () => "Minha API",
+    feed: () => findAllLinks(),
+    getLink: (parent, args, context) => getLink(args.id),
+    findUsers: () => findAllUsers(),
+    getUser: (parent, args, context) => findUser(args.id)
+  },
+  Mutation: {
+    post: async (parent, args, context) => {
+      const user = await getAuthenticatedUser(context)
+      const {url, description} = args
+      return insertLink(url, description, user)
+    } 
+  },
+  User: {
+    links: (parent, args, context) => {
+      return findLinksByUser(parent.id)
+    }
+  },
+  Link: {
+    postedBy: (parent, args, context) => {
+      return findUser(parent.postedBy)
+    }
+  }
 }
 
-const server = graphqlHTTP((req, res, graphQLParams) => ({
-  schema: buildSchema(require('./schema')),
-  rootValue,
-  graphiql: true,
-  validationRules: [depthLimit(4), costAnalysis({variables: graphQLParams.variables, maximumCost: 100, onComplete: cost => {console.log(cost)}})]
-}))
+const schema = makeExecutableSchema({
+  typeDefs,
+  resolvers,
+})
 
 const app = express()
-app.use('/graphql', server)
+
+app.use('/graphql', bodyParser.json(), graphqlExpress(req => ({
+  schema,
+  context: req,
+  validationRules: [depthLimit(4), costAnalysis({variables: req.body.variables, maximumCost: 100, onComplete: cost => {console.log(cost)}})]
+})))
+
 app.listen(4000)
 console.log(`Server is running on http://localhost:4000`)

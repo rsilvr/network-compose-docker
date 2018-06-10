@@ -12,14 +12,14 @@ type Mutation {
   post(url: String!, description: String!): Link!
 }
 
-type Link @cost(complexity: 1) {
+type Link {
   id: ID
   description: String
   url: String
   postedBy: User
 }
 
-type User @cost(complexity: 3) {
+type User {
   id: ID!
   name: String!
   email: String!
