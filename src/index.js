@@ -35,7 +35,7 @@ const insertUsers = () => {
   .then(() => insertLink('www.w3schools.com', 'My reference site', alice.id))
 }
 
-const findUser = id => usersCollection.findOne({id}).toArray().then(extractSingleResult)
+const findUser = id => usersCollection.find({id}).toArray().then(extractSingleResult)
 
 const findAllUsers = () => usersCollection.find({}).toArray()
 
