@@ -1,8 +1,8 @@
 const uuid = require('uuid')
 const express = require('express')
 const bodyParser = require('body-parser')
-const { graphqlExpress, graphiqlExpress } = require('apollo-server-express')
-const { makeExecutableSchema } = require('graphql-tools')
+const {graphqlExpress, graphiqlExpress} = require('apollo-server-express')
+const {makeExecutableSchema} = require('graphql-tools')
 const depthLimit = require('graphql-depth-limit')
 const costAnalysis = require('graphql-cost-analysis').default
 
@@ -24,8 +24,6 @@ const restartDB = async () => {
   return insertUsers()
 }
 
-const extractSingleResult = results => results.length > 0 ? results[0] : null
-
 const insertUsers = () => {
   const bob = {id: uuid(), name: 'Bob', email: 'bob@gmail.com', links: []}
   const alice = {id: uuid(), name: 'Alice', email: 'alice@gmail.com', links: []}
@@ -35,13 +33,16 @@ const insertUsers = () => {
   .then(() => insertLink('www.w3schools.com', 'My reference site', alice.id))
 }
 
-const findUser = id => usersCollection.findOne({id})
+const getUser = id => usersCollection.findOne({id})
 
-const findAllUsers = () => usersCollection.find({}).toArray()
+const findUsers = limit => {
+  let scan = usersCollection.find({})
+  if(limit) scan = scan.limit(limit)
+  return scan.toArray()
+}
 
 const insertLink = (url, description, postedBy) => {
   const link = {url, description, id: uuid(), postedBy}
-  let res
   return linksCollection.insertOne(link).then(results => results.ops[0])
 }
 
@@ -50,18 +51,24 @@ const getLink = id => {
   return linksCollection.findOne(query)
 }
 
-const findLinksByUser = userId => {
+const findLinksByUser = (userId, limit) => {
   const query = {postedBy: userId}
-  return linksCollection.find(query).toArray()
+  const scan = linksCollection.find(query)
+  if(limit) scan.limit(limit)
+  return scan.toArray()
 }
 
-const findAllLinks = () => linksCollection.find({}).toArray()
+const findLinks = limit => {
+  let scan = linksCollection.find({})
+  if(limit) scan = scan.limit(limit)
+  return scan.toArray()
+}
 
 const getAuthenticatedUser = async context => {
   const notAuthenticatedError = new Error('User not authenticated')
   const id = context.headers.authorization
   if(id) {
-    const user = await findUser(id)
+    const user = await getUser(id)
     if(!user) throw notAuthenticatedError
     return user
   }
@@ -73,10 +80,10 @@ const typeDefs = require('./schema')
 const resolvers = {
   Query: {
     info: () => "Minha API",
-    feed: () => findAllLinks(),
+    feed: (parent, args, context) => findLinks(args.limit),
     getLink: (parent, args, context) => getLink(args.id),
-    findUsers: () => findAllUsers(),
-    getUser: (parent, args, context) => findUser(args.id)
+    findUsers: (parent, args, context) => findUsers(args.limit),
+    getUser: (parent, args, context) => getUser(args.id)
   },
   Mutation: {
     post: async (parent, args, context) => {
@@ -87,12 +94,12 @@ const resolvers = {
   },
   User: {
     links: (parent, args, context) => {
-      return findLinksByUser(parent.id)
+      return findLinksByUser(parent.id, args.limit)
     }
   },
   Link: {
     postedBy: (parent, args, context) => {
-      return findUser(parent.postedBy)
+      return getUser(parent.postedBy)
     }
   }
 }

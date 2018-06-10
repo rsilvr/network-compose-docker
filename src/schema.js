@@ -2,8 +2,8 @@ module.exports =
 `
 type Query {
   info: String!
-  feed: [Link!]!
-  findUsers: [User]!
+  feed(limit: Int = 5): [Link!]!
+  findUsers(limit: Int = 5): [User]!
   getLink(id: ID!): Link
   getUser(id: ID!): User
 }
@@ -23,6 +23,6 @@ type User {
   id: ID!
   name: String!
   email: String!
-  links: [Link!]!
+  links(limit: Int = 5): [Link!]! @cost(complexity: 5, useMultipliers: true, multipliers: ["limit"])
 }
 `
