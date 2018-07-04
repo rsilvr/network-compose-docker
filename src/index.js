@@ -7,14 +7,14 @@ const depthLimit = require('graphql-depth-limit')
 const costAnalysis = require('graphql-cost-analysis').default
 
 const {MongoClient} = require('mongodb')
-const dbUrl = 'mongodb://localhost:27017/'
+const dbUrl = 'mongodb://ewally-mongo:27017/'
 let hackerNewsDb, linksCollection, usersCollection
 MongoClient.connect(dbUrl)
 .then(dbObj => {
   hackerNewsDb = dbObj.db('hackernews')
   linksCollection = hackerNewsDb.collection('link')
   usersCollection = hackerNewsDb.collection('user')
-  // return restartDB()
+  return restartDB()
 })
 .then(() => console.log('Database connected'))
 

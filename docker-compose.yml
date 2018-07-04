@@ -1,0 +1,22 @@
+version: '3'
+services:
+    graphql:
+        build:
+            dockerfile: Dockerfile
+            context: .
+        image: my-graphql-app
+        ports:
+            - "4000"
+        networks: 
+            - rede-graphql
+        depends_on: 
+            - "ewally-mongo"
+
+    ewally-mongo:
+        image: mongo
+        networks: 
+            - rede-graphql
+
+networks: 
+    rede-graphql:
+        driver: bridge
